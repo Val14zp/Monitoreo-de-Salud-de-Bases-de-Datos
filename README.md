@@ -60,7 +60,7 @@ Desarrollar una pequeña aplicación que permita monitorear en tiempo real la sa
 
 1. Clonar el repositorio:
    ```bash
-   git clone https://github.com/tuusuario/AdminBases.git
+   git clone https://github.com/Val14zp/AdminBases.git
    ```
 2. Configurar la conexión a la base de datos (SQL Server).
 3. Instalar los paquetes requeridos en R:
