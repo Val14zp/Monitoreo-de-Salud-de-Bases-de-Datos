@@ -54,7 +54,7 @@ Desarrollar una pequeña aplicación que permita monitorear en tiempo real la sa
 ## Tecnologías Utilizadas:
 
 - **Lenguaje de Programación**: R
-- **Base de Datos**: SQL Server
+- **Base de Datos**: Oracle
 
 ## Configuración e Instalación
 
@@ -62,7 +62,7 @@ Desarrollar una pequeña aplicación que permita monitorear en tiempo real la sa
    ```bash
    git clone https://github.com/Val14zp/AdminBases.git
    ```
-2. Configurar la conexión a la base de datos (SQL Server).
+2. Configurar la conexión a la base de datos (Oracle).
 3. Instalar los paquetes requeridos en R:
    ```R
    install.packages("DBI")
