@@ -1,0 +1,6 @@
+xe:
+  host: "localhost"
+  port: "1521"
+  sid: "xe"
+  user: "bases1"
+  pass: "bases123"
