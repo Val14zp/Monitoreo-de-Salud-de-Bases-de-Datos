@@ -91,21 +91,22 @@ public class Dashboard extends JFrame {
 
     // Método para actualizar el gráfico de uso de memoria
     public void updateMemoryUsage(MemoryUsage memoryUsage) {
-        memoryDataset.setValue(memoryUsage.getUsedMemoryMB(), "Usado (MB)", memoryUsage.getName());
+     /*   memoryDataset.setValue(memoryUsage.getUsedMemoryMB(), "Usado (MB)", memoryUsage.getName());
         memoryDataset.setValue(memoryUsage.getFreeMemoryMB(), "Libre (MB)", memoryUsage.getName());
+    */
     }
 
 
     // Método para actualizar el gráfico de uso de SWAP
-    /*public void updateSwapUsage(MemoryUsage swapUsage) {
-        swapDataset.setValue(swapUsage.getUsedMemoryMB(), "Usado (MB)", swapUsage.getName());
-        swapDataset.setValue(swapUsage.getFreeMemoryMB(), "Libre (MB)", swapUsage.getName());
+    public void updateSwapUsage(MemoryUsage swapUsage) {
+        //swapDataset.setValue(swapUsage.getUsedMemoryMB(), "Usado (MB)", swapUsage.getName());
+        //swapDataset.setValue(swapUsage.getFreeMemoryMB(), "Libre (MB)", swapUsage.getName());
     }
     // Método para actualizar el gráfico de conexiones activas
     public void updateActiveSessions(int activeSessions) {
-        sessionsDataset.setValue(activeSessions, "Conexiones", "Activas");
+       // sessionsDataset.setValue(activeSessions, "Conexiones", "Activas");
     }
-*/
+
     // Modificar el método clearDatasets
     public void clearDatasets() {
         resourceDataset.clear();
