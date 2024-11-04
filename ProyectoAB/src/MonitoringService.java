@@ -23,20 +23,34 @@ public class MonitoringService {
         nameTranslations.put("physical reads", "lecturas físicas");
         nameTranslations.put("physical writes", "escrituras físicas");
 
-        try (Connection connection = connectionManager.getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet resultSet = statement.executeQuery(query)) {
+        boolean retry = true;
+        int attempts = 0;
 
-            while (resultSet.next()) {
-                String name = resultSet.getString("NAME");
-                long value = resultSet.getLong("VALUE");
+        while (retry && attempts < 3) {
+            try (Connection connection = connectionManager.getConnection();
+                 Statement statement = connection.createStatement();
+                 ResultSet resultSet = statement.executeQuery(query)) {
 
-                String spanishName = nameTranslations.getOrDefault(name, name);
+                while (resultSet.next()) {
+                    String name = resultSet.getString("NAME");
+                    long value = resultSet.getLong("VALUE");
 
-                results.add(new ResourceUsage(spanishName, value));
+                    String spanishName = nameTranslations.getOrDefault(name, name);
+
+                    results.add(new ResourceUsage(spanishName, value));
+                }
+                retry = false; // Si la consulta fue exitosa, no es necesario reintentar
+
+            } catch (SQLException e) {
+                e.printStackTrace();
+                attempts++;
+                if (attempts >= 3) {
+                    System.err.println("No se pudo recuperar la conexión después de varios intentos en collectResourceUsageData.");
+                    retry = false;
+                } else {
+                    System.out.println("Intentando reconectar en collectResourceUsageData... (Intento " + attempts + ")");
+                }
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
         }
         return results;
     }
@@ -50,57 +64,82 @@ public class MonitoringService {
                 "JOIN (SELECT tablespace_name, SUM(bytes) AS bytes_free FROM dba_free_space GROUP BY tablespace_name) fs " +
                 "ON df.tablespace_name = fs.tablespace_name";
 
-        try (Connection connection = connectionManager.getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet resultSet = statement.executeQuery(query)) {
+        boolean retry = true;
+        int attempts = 0;
 
-            while (resultSet.next()) {
-                String tablespace = resultSet.getString("tablespace_name");
-                double usedSpace = resultSet.getDouble("used_space_mb");
-                double freeSpace = resultSet.getDouble("free_space_mb");
-                results.add(new DiskSpaceUsage(tablespace, usedSpace, freeSpace));
+        while (retry && attempts < 3) {
+            try (Connection connection = connectionManager.getConnection();
+                 Statement statement = connection.createStatement();
+                 ResultSet resultSet = statement.executeQuery(query)) {
+
+                while (resultSet.next()) {
+                    String tablespace = resultSet.getString("tablespace_name");
+                    double usedSpace = resultSet.getDouble("used_space_mb");
+                    double freeSpace = resultSet.getDouble("free_space_mb");
+                    results.add(new DiskSpaceUsage(tablespace, usedSpace, freeSpace));
+                }
+                retry = false;
+
+            } catch (SQLException e) {
+                e.printStackTrace();
+                attempts++;
+                if (attempts >= 3) {
+                    System.err.println("No se pudo recuperar la conexión después de varios intentos en collectDiskSpaceData.");
+                    retry = false;
+                } else {
+                    System.out.println("Intentando reconectar en collectDiskSpaceData... (Intento " + attempts + ")");
+                }
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
         }
         return results;
     }
+
     public MemoryUsage collectDatabaseMemoryUsage() {
         String query = "SELECT component, current_size/1024/1024 AS size_mb FROM V$SGA_DYNAMIC_COMPONENTS";
         double totalMemory = 0.0;
+        int attempts = 0;
+        boolean retry = true;
 
-        try (Connection connection = connectionManager.getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet resultSet = statement.executeQuery(query)) {
+        while (retry && attempts < 3) {
+            try (Connection connection = connectionManager.getConnection();
+                 Statement statement = connection.createStatement();
+                 ResultSet resultSet = statement.executeQuery(query)) {
 
-            while (resultSet.next()) {
-                String component = resultSet.getString("component");
-                double sizeMB = resultSet.getDouble("size_mb");
-                totalMemory += sizeMB;
-            }
+                while (resultSet.next()) {
+                    String component = resultSet.getString("component");
+                    double sizeMB = resultSet.getDouble("size_mb");
+                    totalMemory += sizeMB;
+                }
 
-            // Obtener el tamaño de la PGA
-            String pgaQuery = "SELECT value/1024/1024 AS size_mb FROM V$PGASTAT WHERE name = 'total PGA allocated'";
-            double pgaSize = 0.0;
-            try (Statement pgaStatement = connection.createStatement();
-                 ResultSet pgaResultSet = pgaStatement.executeQuery(pgaQuery)) {
+                String pgaQuery = "SELECT value/1024/1024 AS size_mb FROM V$PGASTAT WHERE name = 'total PGA allocated'";
+                double pgaSize = 0.0;
 
-                if (pgaResultSet.next()) {
-                    pgaSize = pgaResultSet.getDouble("size_mb");
+                try (Statement pgaStatement = connection.createStatement();
+                     ResultSet pgaResultSet = pgaStatement.executeQuery(pgaQuery)) {
+
+                    if (pgaResultSet.next()) {
+                        pgaSize = pgaResultSet.getDouble("size_mb");
+                    }
+                }
+                totalMemory += pgaSize;
+                retry = false;
+
+                return new MemoryUsage("Instancia Oracle", totalMemory, 0.0);
+
+            } catch (SQLException e) {
+                e.printStackTrace();
+                attempts++;
+                if (attempts >= 3) {
+                    System.err.println("No se pudo recuperar la conexión después de varios intentos en collectDatabaseMemoryUsage.");
+                    retry = false;
+                } else {
+                    System.out.println("Intentando reconectar en collectDatabaseMemoryUsage... (Intento " + attempts + ")");
                 }
             }
-
-            totalMemory += pgaSize;
-
-            // Obtener la memoria libre de la instancia (Oracle usa la memoria asignada)
-            return new MemoryUsage("Instancia Oracle", totalMemory, 0.0);
-
-        } catch (SQLException e) {
-            e.printStackTrace();
         }
-
-        return null;
+        return new MemoryUsage("Instancia Oracle", 0.0, 0.0); // Valores predeterminados en caso de fallo
     }
+
     public MemoryUsage collectSwapUsage() {
         double totalSwap = 0.0;
         double usedSwap = 0.0;
@@ -109,7 +148,6 @@ public class MonitoringService {
             Process process = Runtime.getRuntime().exec("wmic pagefile get AllocatedBaseSize, CurrentUsage /Value");
             BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
             String line;
-            Map<String, Double> swapValues = new HashMap<>();
 
             while ((line = reader.readLine()) != null) {
                 line = line.trim();
@@ -130,29 +168,39 @@ public class MonitoringService {
 
         } catch (IOException | InterruptedException e) {
             e.printStackTrace();
+            return new MemoryUsage("SWAP", 0.0, 0.0); // Valores predeterminados en caso de error
         }
-
-        return null;
     }
+
     public int collectActiveSessions() {
         String query = "SELECT COUNT(*) AS active_sessions FROM V$SESSION WHERE STATUS = 'ACTIVE'";
         int activeSessions = 0;
 
-        try (Connection connection = connectionManager.getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet resultSet = statement.executeQuery(query)) {
+        boolean retry = true;
+        int attempts = 0;
 
-            if (resultSet.next()) {
-                activeSessions = resultSet.getInt("active_sessions");
+        while (retry && attempts < 3) {
+            try (Connection connection = connectionManager.getConnection();
+                 Statement statement = connection.createStatement();
+                 ResultSet resultSet = statement.executeQuery(query)) {
+
+                if (resultSet.next()) {
+                    activeSessions = resultSet.getInt("active_sessions");
+                }
+                retry = false;
+
+            } catch (SQLException e) {
+                e.printStackTrace();
+                attempts++;
+                if (attempts >= 3) {
+                    System.err.println("No se pudo recuperar la conexión después de varios intentos en collectActiveSessions.");
+                    retry = false;
+                } else {
+                    System.out.println("Intentando reconectar en collectActiveSessions... (Intento " + attempts + ")");
+                }
             }
-
-        } catch (SQLException e) {
-            e.printStackTrace();
         }
-
         return activeSessions;
     }
-
-
 
 }

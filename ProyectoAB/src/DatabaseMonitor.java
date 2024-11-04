@@ -1,8 +1,11 @@
 import javax.swing.*;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+
+import static javax.management.remote.JMXConnectorFactory.connect;
 
 public class DatabaseMonitor {
     private ConnectionManager connectionManager;
@@ -55,10 +58,10 @@ public class DatabaseMonitor {
                 databaseMemoryUsage = monitoringService.collectDatabaseMemoryUsage();
 
                 // Recolectar datos de SWAP
-                //swapUsage = monitoringService.collectSwapUsage();
+                swapUsage = monitoringService.collectSwapUsage();
 
                 // Recolectar datos de conexiones activas
-                //activeSessions = monitoringService.collectActiveSessions();
+                activeSessions = monitoringService.collectActiveSessions();
 
                 return null;
             }
@@ -79,16 +82,22 @@ public class DatabaseMonitor {
                     for (DiskSpaceUsage ds : diskSpaceData) {
                         dashboard.updateDiskSpace(ds.getTablespace(), ds.getUsedSpace(), ds.getFreeSpace());
                     }
+                    // Actualizar gráfico de uso de memoria si no es null
+                    if (databaseMemoryUsage != null) {
+                        dashboard.updateMemoryUsage(databaseMemoryUsage);
+                    }
+                    if (systemMemoryUsage != null) {
+                        dashboard.updateMemoryUsage(systemMemoryUsage);
+                    }
 
-                    // Actualizar gráfico de uso de memoria
-                    dashboard.updateMemoryUsage(databaseMemoryUsage);
-                    dashboard.updateMemoryUsage(systemMemoryUsage);
+                    // Actualizar gráfico de uso de SWAP si no es null
+                    if (swapUsage != null) {
+                        dashboard.updateSwapUsage(swapUsage);
+                    }
 
-                    // Actualizar gráfico de uso de SWAP
-                   // dashboard.updateSwapUsage(swapUsage);
+                    // Actualizar gráfico de sesiones activas
+                    dashboard.updateActiveSessions(activeSessions);
 
-                    // Actualizar el gráfico o valor de sesiones activas
-                    //dashboard.updateActiveSessions(activeSessions);
 
                 } catch (Exception ex) {
                     ex.printStackTrace();

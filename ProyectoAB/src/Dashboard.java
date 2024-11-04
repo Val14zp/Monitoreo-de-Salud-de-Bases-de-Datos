@@ -97,7 +97,7 @@ public class Dashboard extends JFrame {
 
 
     // Método para actualizar el gráfico de uso de SWAP
-    /*public void updateSwapUsage(MemoryUsage swapUsage) {
+    public void updateSwapUsage(MemoryUsage swapUsage) {
         swapDataset.setValue(swapUsage.getUsedMemoryMB(), "Usado (MB)", swapUsage.getName());
         swapDataset.setValue(swapUsage.getFreeMemoryMB(), "Libre (MB)", swapUsage.getName());
     }
@@ -105,7 +105,7 @@ public class Dashboard extends JFrame {
     public void updateActiveSessions(int activeSessions) {
         sessionsDataset.setValue(activeSessions, "Conexiones", "Activas");
     }
-*/
+
     // Modificar el método clearDatasets
     public void clearDatasets() {
         resourceDataset.clear();
