@@ -7,24 +7,8 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="module-library">
-      <library>
-        <CLASSES>
-          <root url="jar://$MODULE_DIR$/jfreechart-1.0.19-demo.jar!/" />
-        </CLASSES>
-        <JAVADOC />
-        <SOURCES />
-      </library>
-    </orderEntry>
-    <orderEntry type="module-library">
-      <library>
-        <CLASSES>
-          <root url="jar://$MODULE_DIR$/ojdbc11.jar!/" />
-        </CLASSES>
-        <JAVADOC />
-        <SOURCES />
-      </library>
-    </orderEntry>
-    <orderEntry type="library" name="jfree.jfreechart" level="project" />
+    <orderEntry type="library" name="jfreechart-1.0.19-demo" level="project" />
+    <orderEntry type="library" name="jfreechart-1.5.4" level="project" />
+    <orderEntry type="library" name="ojdbc11" level="project" />
   </component>
 </module>

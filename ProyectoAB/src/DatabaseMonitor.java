@@ -1,5 +1,6 @@
 import javax.swing.*;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -40,6 +41,7 @@ public class DatabaseMonitor {
         SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
             private List<ResourceUsage> resourceUsageData;
             private List<DiskSpaceUsage> diskSpaceData;
+          //  private DiskIOUsage diskIOUsageData;
             private MemoryUsage databaseMemoryUsage;
             private MemoryUsage systemMemoryUsage;
             private MemoryUsage swapUsage;
@@ -69,6 +71,15 @@ public class DatabaseMonitor {
                     get(); // Manejar excepciones
                     // Actualizar los gráficos en el EDT
                     dashboard.clearDatasets();
+
+                    BackupStatus backupStatus = monitoringService.fetchBackupStatus();
+                    dashboard.updateBackupStatus(backupStatus);
+
+                    DiskIOUsage diskIOUsage = monitoringService.fetchDiskIOUsage();
+                    dashboard.updateDiskIOUsage(diskIOUsage.getReadRate(), diskIOUsage.getWriteRate());
+
+                    ArrayList<Alert> alerts = monitoringService.fetchCriticalEvents();
+                    dashboard.updateAlerts(alerts);
 
                     // Actualizar gráfico de uso de recursos
                     for (ResourceUsage ru : resourceUsageData) {

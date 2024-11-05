@@ -153,6 +153,63 @@ public class MonitoringService {
         return activeSessions;
     }
 
+    public DiskIOUsage fetchDiskIOUsage() throws SQLException {
+        String sql = "SELECT VALUE FROM V$SYSSTAT WHERE NAME = 'physical reads' OR NAME = 'physical writes'";
+        try (Connection connection = connectionManager.getConnection();
+             Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
 
+            double readRate = 0.0;
+            double writeRate = 0.0;
 
+            while (rs.next()) {
+                String statName = rs.getString("NAME");
+                double statValue = rs.getDouble("VALUE");
+
+                if ("physical reads".equals(statName)) {
+                    readRate = statValue;
+                } else if ("physical writes".equals(statName)) {
+                    writeRate = statValue;
+                }
+            }
+            return new DiskIOUsage(readRate, writeRate);
+        }
+    }
+
+    public BackupStatus fetchBackupStatus() throws SQLException {
+        String sql = "SELECT COMPLETION_TIME, OUTPUT_BYTES / (1024 * 1024) AS SIZE_MB " +
+                "FROM V$RMAN_BACKUP_JOB_DETAILS ORDER BY COMPLETION_TIME DESC FETCH FIRST 1 ROWS ONLY";
+        Date lastBackupDate = null;
+        double totalSizeMB = 0.0;
+
+        try (Connection connection = connectionManager.getConnection();
+             Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            if (rs.next()) {
+                lastBackupDate = rs.getDate("COMPLETION_TIME");
+                totalSizeMB = rs.getDouble("SIZE_MB");
+            }
+        }
+        return new BackupStatus(lastBackupDate, totalSizeMB);
+    }
+
+    public ArrayList<Alert> fetchCriticalEvents() throws SQLException {
+        String sql = "SELECT SEVERITY, ORIGINATING_TIMESTAMP, MESSAGE_TEXT " +
+                "FROM V$ALERT_HISTORY ORDER BY ORIGINATING_TIMESTAMP DESC FETCH FIRST 10 ROWS ONLY";
+        ArrayList<Alert> alerts = new ArrayList<>();
+
+        try (Connection connection = connectionManager.getConnection();
+             Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
+            while (rs.next()) {
+                String severity = rs.getString("SEVERITY");
+                Timestamp timestamp = rs.getTimestamp("ORIGINATING_TIMESTAMP");
+                String description = rs.getString("MESSAGE_TEXT");
+
+                alerts.add(new Alert(severity, timestamp, description));
+            }
+        }
+        return alerts;
+    }
 }
