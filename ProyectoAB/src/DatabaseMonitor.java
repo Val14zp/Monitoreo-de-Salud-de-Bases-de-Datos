@@ -96,10 +96,10 @@ public class DatabaseMonitor {
                     dashboard.updateMemoryUsage(systemMemoryUsage);
 
                     // Actualizar gráfico de uso de SWAP
-                   // dashboard.updateSwapUsage(swapUsage);
+                    dashboard.updateSwapUsage(swapUsage);
 
                     // Actualizar el gráfico o valor de sesiones activas
-                    //dashboard.updateActiveSessions(activeSessions);
+                    dashboard.updateActiveSessions(activeSessions);
 
                 } catch (Exception ex) {
                     ex.printStackTrace();
