@@ -1,21 +1,23 @@
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-
 public class DiskIOUsage {
-    private double readRate;  // in MB/s or appropriate units
-    private double writeRate; // in MB/s or appropriate units
+    private int instanceId;
+    private double readMb;
+    private double writeMb;
 
-    public DiskIOUsage(double readRate, double writeRate) {
-        this.readRate = readRate;
-        this.writeRate = writeRate;
+    public DiskIOUsage(int instanceId, double readMb, double writeMb) {
+        this.instanceId = instanceId;
+        this.readMb = readMb;
+        this.writeMb = writeMb;
     }
 
-    public double getReadRate() {
-        return readRate;
+    public int getInstanceId() {
+        return instanceId;
     }
 
-    public double getWriteRate() {
-        return writeRate;
+    public double getReadMb() {
+        return readMb;
+    }
+
+    public double getWriteMb() {
+        return writeMb;
     }
 }

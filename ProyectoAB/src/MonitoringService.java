@@ -14,202 +14,323 @@ public class MonitoringService {
         this.connectionManager = connectionManager;
     }
 
-    public List<ResourceUsage> collectResourceUsageData() {
-        List<ResourceUsage> results = new ArrayList<>();
-        String query = "SELECT * FROM V$SYSSTAT WHERE NAME IN ('CPU used by this session', 'physical reads', 'physical writes')";
-
-        Map<String, String> nameTranslations = new HashMap<>();
-        nameTranslations.put("CPU used by this session", "CPU usada por esta sesión");
-        nameTranslations.put("physical reads", "lecturas físicas");
-        nameTranslations.put("physical writes", "escrituras físicas");
-
+    public String collectServerHost() {
+        String query = "SELECT sys_context('USERENV','SERVER_HOST') FROM dual";
         try (Connection connection = connectionManager.getConnection();
              Statement statement = connection.createStatement();
              ResultSet resultSet = statement.executeQuery(query)) {
-
-            while (resultSet.next()) {
-                String name = resultSet.getString("NAME");
-                long value = resultSet.getLong("VALUE");
-
-                String spanishName = nameTranslations.getOrDefault(name, name);
-
-                results.add(new ResourceUsage(spanishName, value));
+            if (resultSet.next()) {
+                return resultSet.getString(1);
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return results;
+        return "Unknown Host";
     }
 
-    public List<DiskSpaceUsage> collectDiskSpaceData() {
-        List<DiskSpaceUsage> results = new ArrayList<>();
-        String query = "SELECT df.tablespace_name, " +
-                "(df.bytes - fs.bytes_free) / 1024 / 1024 AS used_space_mb, " +
-                "fs.bytes_free / 1024 / 1024 AS free_space_mb " +
-                "FROM dba_data_files df " +
-                "JOIN (SELECT tablespace_name, SUM(bytes) AS bytes_free FROM dba_free_space GROUP BY tablespace_name) fs " +
-                "ON df.tablespace_name = fs.tablespace_name";
+    public CpuUsage collectCpuUsage() {
+        String query = """
+            SELECT 
+                (SELECT VALUE FROM V$SYSSTAT WHERE NAME = 'CPU used by this session') / 
+                (SELECT VALUE FROM V$SYSSTAT WHERE NAME = 'DB time') * 100 AS cpu_utilizado_por_base_datos,
+                (SELECT VALUE FROM V$OSSTAT WHERE STAT_NAME = 'NUM_CPUS') AS cpu_total
+            FROM DUAL
+        """;
 
         try (Connection connection = connectionManager.getConnection();
              Statement statement = connection.createStatement();
              ResultSet resultSet = statement.executeQuery(query)) {
+            if (resultSet.next()) {
+                double cpuUsed = resultSet.getDouble("cpu_utilizado_por_base_datos");
+                int cpuTotal = resultSet.getInt("cpu_total");
+                return new CpuUsage(cpuUsed, cpuTotal);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return new CpuUsage(0, 0);
+    }
 
+    public RamUsage collectRamUsage() {
+        String query = """
+            SELECT
+                (SELECT SUM(VALUE) FROM V$SGA) / (1024 * 1024 * 1024) AS ram_utilizada_db_gb,
+                (SELECT VALUE FROM V$OSSTAT WHERE STAT_NAME = 'PHYSICAL_MEMORY_BYTES') / (1024 * 1024 * 1024) AS ram_total_gb
+            FROM DUAL
+        """;
+
+        try (Connection connection = connectionManager.getConnection();
+             Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(query)) {
+            if (resultSet.next()) {
+                double ramUsed = resultSet.getDouble("ram_utilizada_db_gb");
+                double ramTotal = resultSet.getDouble("ram_total_gb");
+                return new RamUsage(ramUsed, ramTotal);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return new RamUsage(0, 0);
+    }
+
+    public List<TablespaceUsage> collectTablespaceUsage() {
+        String query = """
+            SELECT 
+                df.tablespace_name,
+                ROUND((df.total_space - NVL(fs.free_space, 0)) / df.total_space * 100, 2) AS porcentaje_espacio_utilizado,
+                ROUND(NVL(fs.free_space, 0) / df.total_space * 100, 2) AS porcentaje_espacio_libre
+            FROM 
+                (SELECT 
+                     tablespace_name,
+                     SUM(bytes) / (1024 * 1024 * 1024) AS total_space
+                 FROM 
+                     dba_data_files
+                 GROUP BY 
+                     tablespace_name) df
+            LEFT JOIN 
+                (SELECT 
+                     tablespace_name,
+                     SUM(bytes) / (1024 * 1024 * 1024) AS free_space
+                 FROM 
+                     dba_free_space
+                 GROUP BY 
+                     tablespace_name) fs
+            ON 
+                df.tablespace_name = fs.tablespace_name
+        """;
+
+        List<TablespaceUsage> results = new ArrayList<>();
+        try (Connection connection = connectionManager.getConnection();
+             Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(query)) {
             while (resultSet.next()) {
                 String tablespace = resultSet.getString("tablespace_name");
-                double usedSpace = resultSet.getDouble("used_space_mb");
-                double freeSpace = resultSet.getDouble("free_space_mb");
-                results.add(new DiskSpaceUsage(tablespace, usedSpace, freeSpace));
+                double usedPercent = resultSet.getDouble("porcentaje_espacio_utilizado");
+                double freePercent = resultSet.getDouble("porcentaje_espacio_libre");
+                results.add(new TablespaceUsage(tablespace, usedPercent, freePercent));
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
         return results;
     }
-    public MemoryUsage collectDatabaseMemoryUsage() {
-        String query = "SELECT component, current_size/1024/1024 AS size_mb FROM V$SGA_DYNAMIC_COMPONENTS";
-        double totalMemory = 0.0;
+    public SwapUsage collectSwapUsage() {
+        String query = """
+            SELECT 
+                NVL((SELECT VALUE FROM V$OSSTAT WHERE STAT_NAME = 'SWAP_USED'), 0) / 
+                NVL((SELECT VALUE FROM V$OSSTAT WHERE STAT_NAME = 'SWAP_TOTAL'), 1) * 100 AS porcentaje_swap_utilizado,
+                100 - (NVL((SELECT VALUE FROM V$OSSTAT WHERE STAT_NAME = 'SWAP_USED'), 0) / 
+                       NVL((SELECT VALUE FROM V$OSSTAT WHERE STAT_NAME = 'SWAP_TOTAL'), 1) * 100) AS porcentaje_swap_disponible
+            FROM DUAL
+        """;
 
         try (Connection connection = connectionManager.getConnection();
              Statement statement = connection.createStatement();
              ResultSet resultSet = statement.executeQuery(query)) {
-
-            while (resultSet.next()) {
-                String component = resultSet.getString("component");
-                double sizeMB = resultSet.getDouble("size_mb");
-                totalMemory += sizeMB;
-            }
-
-            // Obtener el tamaño de la PGA
-            String pgaQuery = "SELECT value/1024/1024 AS size_mb FROM V$PGASTAT WHERE name = 'total PGA allocated'";
-            double pgaSize = 0.0;
-            try (Statement pgaStatement = connection.createStatement();
-                 ResultSet pgaResultSet = pgaStatement.executeQuery(pgaQuery)) {
-
-                if (pgaResultSet.next()) {
-                    pgaSize = pgaResultSet.getDouble("size_mb");
-                }
-            }
-
-            totalMemory += pgaSize;
-
-            // Obtener la memoria libre de la instancia (Oracle usa la memoria asignada)
-            return new MemoryUsage("Instancia Oracle", totalMemory, 0.0);
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-
-        return null;
-    }
-    public MemoryUsage collectSwapUsage() {
-        double totalSwap = 0.0;
-        double usedSwap = 0.0;
-
-        try {
-            Process process = Runtime.getRuntime().exec("wmic pagefile get AllocatedBaseSize, CurrentUsage /Value");
-            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            String line;
-            Map<String, Double> swapValues = new HashMap<>();
-
-            while ((line = reader.readLine()) != null) {
-                line = line.trim();
-                if (line.startsWith("AllocatedBaseSize=")) {
-                    double value = Double.parseDouble(line.split("=")[1].trim());
-                    totalSwap += value;
-                } else if (line.startsWith("CurrentUsage=")) {
-                    double value = Double.parseDouble(line.split("=")[1].trim());
-                    usedSwap += value;
-                }
-            }
-            reader.close();
-            process.waitFor();
-
-            double freeSwap = totalSwap - usedSwap;
-
-            return new MemoryUsage("SWAP", usedSwap, freeSwap);
-
-        } catch (IOException | InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        return null;
-    }
-    public int collectActiveSessions() {
-        String query = "SELECT COUNT(*) AS active_sessions FROM V$SESSION WHERE STATUS = 'ACTIVE'";
-        int activeSessions = 0;
-
-        try (Connection connection = connectionManager.getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet resultSet = statement.executeQuery(query)) {
-
             if (resultSet.next()) {
-                activeSessions = resultSet.getInt("active_sessions");
+                double usedSwap = resultSet.getDouble("porcentaje_swap_utilizado");
+                double freeSwap = resultSet.getDouble("porcentaje_swap_disponible");
+                return new SwapUsage(usedSwap, freeSwap);
             }
-
         } catch (SQLException e) {
             e.printStackTrace();
         }
-
-        return activeSessions;
+        return new SwapUsage(0, 0);
     }
 
-    public DiskIOUsage fetchDiskIOUsage() throws SQLException {
-        String sql = "SELECT VALUE FROM V$SYSSTAT WHERE NAME = 'physical reads' OR NAME = 'physical writes'";
+    public List<TableSize> collectLargestTables() {
+        String query = """
+            SELECT 
+                TABLE_NAME,
+                NUM_ROWS AS filas,
+                BLOCKS * 8192 / (1024 * 1024 * 1024) AS tamano_gb
+            FROM DBA_TABLES
+            WHERE NUM_ROWS IS NOT NULL
+            AND BLOCKS IS NOT NULL
+            ORDER BY tamano_gb DESC
+            FETCH FIRST 10 ROWS ONLY
+        """;
+
+        List<TableSize> results = new ArrayList<>();
         try (Connection connection = connectionManager.getConnection();
-             Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
-
-            double readRate = 0.0;
-            double writeRate = 0.0;
-
-            while (rs.next()) {
-                String statName = rs.getString("NAME");
-                double statValue = rs.getDouble("VALUE");
-
-                if ("physical reads".equals(statName)) {
-                    readRate = statValue;
-                } else if ("physical writes".equals(statName)) {
-                    writeRate = statValue;
-                }
+             Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(query)) {
+            while (resultSet.next()) {
+                String tableName = resultSet.getString("TABLE_NAME");
+                long rows = resultSet.getLong("filas");
+                double sizeGb = resultSet.getDouble("tamano_gb");
+                results.add(new TableSize(tableName, rows, sizeGb));
             }
-            return new DiskIOUsage(readRate, writeRate);
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
+        return results;
     }
 
-    public BackupStatus fetchBackupStatus() throws SQLException {
-        String sql = "SELECT COMPLETION_TIME, OUTPUT_BYTES / (1024 * 1024) AS SIZE_MB " +
-                "FROM V$RMAN_BACKUP_JOB_DETAILS ORDER BY COMPLETION_TIME DESC FETCH FIRST 1 ROWS ONLY";
-        Date lastBackupDate = null;
-        double totalSizeMB = 0.0;
+    public List<RedoLogUsage> collectRedoLogUsage() {
+        String query = """
+            SELECT 
+                GROUP# AS grupo,
+                SEQUENCE# AS secuencia,
+                ARCHIVED AS archivado,
+                STATUS AS estado
+            FROM V$LOG
+        """;
 
+        List<RedoLogUsage> results = new ArrayList<>();
         try (Connection connection = connectionManager.getConnection();
-             Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
-            if (rs.next()) {
-                lastBackupDate = rs.getDate("COMPLETION_TIME");
-                totalSizeMB = rs.getDouble("SIZE_MB");
+             Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(query)) {
+            while (resultSet.next()) {
+                int group = resultSet.getInt("grupo");
+                int sequence = resultSet.getInt("secuencia");
+                String archived = resultSet.getString("archivado");
+                String status = resultSet.getString("estado");
+                results.add(new RedoLogUsage(group, sequence, archived, status));
             }
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
-        return new BackupStatus(lastBackupDate, totalSizeMB);
+        return results;
     }
 
-    public ArrayList<Alert> fetchCriticalEvents() throws SQLException {
-        String sql = "SELECT SEVERITY, ORIGINATING_TIMESTAMP, MESSAGE_TEXT " +
-                "FROM V$ALERT_HISTORY ORDER BY ORIGINATING_TIMESTAMP DESC FETCH FIRST 10 ROWS ONLY";
-        ArrayList<Alert> alerts = new ArrayList<>();
+    public SessionUsage collectSessionUsage() {
+        String query = """
+            SELECT 
+                COUNT(*) AS conexiones_activas,
+                COUNT(DISTINCT SID) AS sesiones_concurrentes
+            FROM V$SESSION
+            WHERE STATUS = 'ACTIVE'
+        """;
 
         try (Connection connection = connectionManager.getConnection();
-             Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
-
-            while (rs.next()) {
-                String severity = rs.getString("SEVERITY");
-                Timestamp timestamp = rs.getTimestamp("ORIGINATING_TIMESTAMP");
-                String description = rs.getString("MESSAGE_TEXT");
-
-                alerts.add(new Alert(severity, timestamp, description));
+             Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(query)) {
+            if (resultSet.next()) {
+                int activeConnections = resultSet.getInt("conexiones_activas");
+                int concurrentSessions = resultSet.getInt("sesiones_concurrentes");
+                return new SessionUsage(activeConnections, concurrentSessions);
             }
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
-        return alerts;
+        return new SessionUsage(0, 0);
+    }
+
+    public List<QueryPerformance> collectTopQueriesByLatency() {
+        String query = """
+            SELECT 
+                SQL_ID,
+                COUNT(*) AS frecuencia,
+                AVG(ELAPSED_TIME / 1000000) AS latencia_promedio_seg
+            FROM V$SQL
+            WHERE ELAPSED_TIME IS NOT NULL
+            GROUP BY SQL_ID
+            ORDER BY frecuencia DESC
+            FETCH FIRST 10 ROWS ONLY
+        """;
+
+        List<QueryPerformance> results = new ArrayList<>();
+        try (Connection connection = connectionManager.getConnection();
+             Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(query)) {
+            while (resultSet.next()) {
+                String sqlId = resultSet.getString("SQL_ID");
+                int frequency = resultSet.getInt("frecuencia");
+                double avgLatency = resultSet.getDouble("latencia_promedio_seg");
+                results.add(new QueryPerformance(sqlId, frequency, avgLatency));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return results;
+    }
+
+    public List<DiskIOUsage> collectDiskIOUsage() {
+        String query = """
+            SELECT 
+                INST_ID,
+                SUM(CASE WHEN NAME = 'physical read total bytes' THEN VALUE ELSE 0 END) / 1024 / 1024 AS lectura_mb,
+                SUM(CASE WHEN NAME = 'physical write total bytes' THEN VALUE ELSE 0 END) / 1024 / 1024 AS escritura_mb
+            FROM 
+                GV$SYSSTAT
+            GROUP BY 
+                INST_ID
+        """;
+
+        List<DiskIOUsage> results = new ArrayList<>();
+        try (Connection connection = connectionManager.getConnection();
+             Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(query)) {
+            while (resultSet.next()) {
+                int instanceId = resultSet.getInt("INST_ID");
+                double readMb = resultSet.getDouble("lectura_mb");
+                double writeMb = resultSet.getDouble("escritura_mb");
+                results.add(new DiskIOUsage(instanceId, readMb, writeMb));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return results;
+    }
+
+    public BackupUsage collectBackupUsage() {
+        String query = """
+            SELECT 
+                MAX(bp.COMPLETION_TIME) AS ultima_fecha_backup,
+                SUM(bp.BYTES) / (1024 * 1024 * 1024) AS tamano_total_backup_gb
+            FROM 
+                V$BACKUP_PIECE bp
+        """;
+
+        try (Connection connection = connectionManager.getConnection();
+             Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(query)) {
+            if (resultSet.next()) {
+                Timestamp lastBackupDate = resultSet.getTimestamp("ultima_fecha_backup");
+                double backupSizeGb = resultSet.getDouble("tamano_total_backup_gb");
+                return new BackupUsage(lastBackupDate, backupSizeGb);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return new BackupUsage(null, 0);
+    }
+
+    public List<AlertLog> collectCriticalAlerts() {
+        String query = """
+            SELECT 
+                TO_CHAR(ORIGINATING_TIMESTAMP, 'YYYY-MM-DD HH24:MI:SS') AS fecha,
+                MESSAGE_TEXT AS descripcion_error,
+                COUNT(*) AS conteo
+            FROM 
+                V$DIAG_ALERT_EXT
+            WHERE 
+                TO_CHAR(ORIGINATING_TIMESTAMP, 'YYYY-MM-DD') BETWEEN TO_CHAR(SYSDATE - 1, 'YYYY-MM-DD') AND TO_CHAR(SYSDATE, 'YYYY-MM-DD')
+                AND (MESSAGE_TEXT LIKE '%ORA-%' 
+                     OR MESSAGE_TEXT LIKE '%Errors in file%' 
+                     OR MESSAGE_TEXT LIKE '%highscn criteria not met for file%'
+                     OR MESSAGE_TEXT LIKE '%Warning%')
+            GROUP BY 
+                TO_CHAR(ORIGINATING_TIMESTAMP, 'YYYY-MM-DD HH24:MI:SS'),
+                MESSAGE_TEXT
+            ORDER BY 
+                fecha DESC
+        """;
+
+        List<AlertLog> results = new ArrayList<>();
+        try (Connection connection = connectionManager.getConnection();
+             Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(query)) {
+            while (resultSet.next()) {
+                String date = resultSet.getString("fecha");
+                String description = resultSet.getString("descripcion_error");
+                int count = resultSet.getInt("conteo");
+                results.add(new AlertLog(date, description, count));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return results;
     }
 }

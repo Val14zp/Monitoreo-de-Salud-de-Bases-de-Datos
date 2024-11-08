@@ -1,6 +1,5 @@
 import javax.swing.*;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.List;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -25,7 +24,7 @@ public class DatabaseMonitor {
         monitoringService = new MonitoringService(connectionManager);
     }
 
-    // Monitoreo de la base de datos
+    // Inicia el monitoreo periódico
     public void startMonitoring() {
         timer = new Timer(1000, new ActionListener() {
             @Override
@@ -39,28 +38,36 @@ public class DatabaseMonitor {
     // Método para actualizar los datos y gráficos
     private void updateData() {
         SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
-            private List<ResourceUsage> resourceUsageData;
-            private List<DiskSpaceUsage> diskSpaceData;
-          //  private DiskIOUsage diskIOUsageData;
-            private MemoryUsage databaseMemoryUsage;
-            private MemoryUsage systemMemoryUsage;
-            private MemoryUsage swapUsage;
-            private int activeSessions;
+            private CpuUsage cpuUsage;
+            private RamUsage ramUsage;
+            private SwapUsage swapUsage;
+            private List<TablespaceUsage> tablespaceData;
+            private List<QueryPerformance> topQueries;
+            private List<AlertLog> criticalAlerts;
+            private SessionUsage sessionUsage;
 
             @Override
             protected Void doInBackground() throws Exception {
-                // Recolectar datos de uso de recursos
-                resourceUsageData = monitoringService.collectResourceUsageData();
-                // Recolectar datos de uso de espacio en disco
-                diskSpaceData = monitoringService.collectDiskSpaceData();
-                // Recolectar datos de memoria de la instancia de Oracle
-                databaseMemoryUsage = monitoringService.collectDatabaseMemoryUsage();
+                // Recolectar datos de uso de CPU
+                cpuUsage = monitoringService.collectCpuUsage();
+
+                // Recolectar datos de uso de RAM
+                ramUsage = monitoringService.collectRamUsage();
 
                 // Recolectar datos de SWAP
-                //swapUsage = monitoringService.collectSwapUsage();
+                swapUsage = monitoringService.collectSwapUsage();
 
-                // Recolectar datos de conexiones activas
-                //activeSessions = monitoringService.collectActiveSessions();
+                // Recolectar datos de uso de tablaspaces
+                tablespaceData = monitoringService.collectTablespaceUsage();
+
+                // Recolectar las consultas más intensivas
+                topQueries = monitoringService.collectTopQueriesByLatency();
+
+                // Recolectar alertas críticas
+                criticalAlerts = monitoringService.collectCriticalAlerts();
+
+                // Recolectar datos de sesiones activas
+                sessionUsage = monitoringService.collectSessionUsage();
 
                 return null;
             }
@@ -69,37 +76,31 @@ public class DatabaseMonitor {
             protected void done() {
                 try {
                     get(); // Manejar excepciones
-                    // Actualizar los gráficos en el EDT
+                    // Actualizar la interfaz gráfica con los datos recolectados
                     dashboard.clearDatasets();
 
-                    BackupStatus backupStatus = monitoringService.fetchBackupStatus();
-                    dashboard.updateBackupStatus(backupStatus);
+                    // Actualizar gráfico de uso de CPU
+                    dashboard.updateCpuUsage(cpuUsage);
 
-                    DiskIOUsage diskIOUsage = monitoringService.fetchDiskIOUsage();
-                    dashboard.updateDiskIOUsage(diskIOUsage.getReadRate(), diskIOUsage.getWriteRate());
-
-                    ArrayList<Alert> alerts = monitoringService.fetchCriticalEvents();
-                    dashboard.updateAlerts(alerts);
-
-                    // Actualizar gráfico de uso de recursos
-                    for (ResourceUsage ru : resourceUsageData) {
-                        dashboard.updateResourceUsage(ru.getName(), ru.getValue());
-                    }
-
-                    // Actualizar gráfico de uso de espacio en disco
-                    for (DiskSpaceUsage ds : diskSpaceData) {
-                        dashboard.updateDiskSpace(ds.getTablespace(), ds.getUsedSpace(), ds.getFreeSpace());
-                    }
-
-                    // Actualizar gráfico de uso de memoria
-                    dashboard.updateMemoryUsage(databaseMemoryUsage);
-                    dashboard.updateMemoryUsage(systemMemoryUsage);
+                    // Actualizar gráfico de uso de RAM
+                    dashboard.updateRamUsage(ramUsage);
 
                     // Actualizar gráfico de uso de SWAP
                     dashboard.updateSwapUsage(swapUsage);
 
-                    // Actualizar el gráfico o valor de sesiones activas
-                    dashboard.updateActiveSessions(activeSessions);
+                    // Actualizar gráfico de tablaspaces
+                    for (TablespaceUsage ts : tablespaceData) {
+                        dashboard.updateTablespaceUsage(ts.getTablespaceName(), ts.getUsedPercentage(), ts.getFreePercentage());
+                    }
+
+                    // Actualizar las consultas más intensivas
+                    dashboard.updateTopQueries(topQueries);
+
+                    // Mostrar alertas críticas
+                    dashboard.updateCriticalAlerts(criticalAlerts);
+
+                    // Actualizar sesiones activas
+                    dashboard.updateSessionUsage(sessionUsage);
 
                 } catch (Exception ex) {
                     ex.printStackTrace();
@@ -109,9 +110,7 @@ public class DatabaseMonitor {
         worker.execute();
     }
 
-
-
-    // Detener el monitoreo y cerrar la conexión
+    // Detiene el monitoreo y cierra la conexión
     public void stopMonitoring() {
         if (timer != null) {
             timer.stop();

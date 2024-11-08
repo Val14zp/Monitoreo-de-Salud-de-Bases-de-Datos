@@ -5,7 +5,7 @@ public class Main {
         // Parámetros de conexión a la base de datos
         String url = "jdbc:oracle:thin:@localhost:1521:XE"; // Cambia según tu configuración
         String username = "sys as sysdba"; // Cambia por tu nombre de usuario
-        String password = "Fanicio22"; // Cambia por tu contraseña
+        String password = "root"; // Cambia por tu contraseña
 
         // Crear e iniciar la GUI en el hilo de despacho de eventos de Swing
         SwingUtilities.invokeLater(() -> {
