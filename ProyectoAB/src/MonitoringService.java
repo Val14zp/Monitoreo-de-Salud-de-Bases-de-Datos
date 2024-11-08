@@ -99,7 +99,7 @@ public class MonitoringService {
             e.printStackTrace();
         }
 
-        return null;
+        return new MemoryUsage("Instancia Oracle", 0.0, 0.0);
     }
     public MemoryUsage collectSwapUsage() {
         double totalSwap = 0.0;

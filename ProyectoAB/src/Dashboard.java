@@ -57,7 +57,10 @@ public class Dashboard extends JFrame {
                 "SWAP (MB)",
                 swapDataset
         );
-        JFreeChart sessionChart = ChartFactory.createBarChart("Conexiones Activas", "Conexiones", "Número", sessionsDataset);
+        JFreeChart sessionChart = ChartFactory.createBarChart(
+                "Conexiones Activas",
+                "Conexiones",
+                "Número", sessionsDataset);
 
         // Crear paneles de gráficos
         ChartPanel resourceChartPanel = new ChartPanel(resourceChart);
@@ -91,9 +94,10 @@ public class Dashboard extends JFrame {
 
     // Método para actualizar el gráfico de uso de memoria
     public void updateMemoryUsage(MemoryUsage memoryUsage) {
-     /*   memoryDataset.setValue(memoryUsage.getUsedMemoryMB(), "Usado (MB)", memoryUsage.getName());
+        System.out.println(memoryUsage.getUsedMemoryMB());
+        memoryDataset.setValue(memoryUsage.getUsedMemoryMB(), "Usado (MB)", memoryUsage.getName());
         memoryDataset.setValue(memoryUsage.getFreeMemoryMB(), "Libre (MB)", memoryUsage.getName());
-    */
+
     }
 
 
@@ -104,7 +108,7 @@ public class Dashboard extends JFrame {
     }
     // Método para actualizar el gráfico de conexiones activas
     public void updateActiveSessions(int activeSessions) {
-       // sessionsDataset.setValue(activeSessions, "Conexiones", "Activas");
+        sessionsDataset.setValue(activeSessions, "Conexiones", "Activas");
     }
 
     // Modificar el método clearDatasets

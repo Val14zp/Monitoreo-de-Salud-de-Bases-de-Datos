@@ -1,7 +1,7 @@
 public class MemoryUsage {
-    private String name;
-    private double usedMemoryMB;
-    private double freeMemoryMB;
+    private String name = " ";
+    private double usedMemoryMB = 0.0;
+    private double freeMemoryMB = 0.0;
 
     public MemoryUsage(String name, double usedMemoryMB, double freeMemoryMB) {
         this.name = name;

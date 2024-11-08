@@ -40,8 +40,8 @@ public class DatabaseMonitor {
         SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
             private List<ResourceUsage> resourceUsageData;
             private List<DiskSpaceUsage> diskSpaceData;
-            private MemoryUsage databaseMemoryUsage;
-            private MemoryUsage systemMemoryUsage;
+            private MemoryUsage databaseMemoryUsage =  new MemoryUsage("",0,0);;
+            private MemoryUsage systemMemoryUsage = new MemoryUsage("",0,0);
             private MemoryUsage swapUsage;
             private int activeSessions;
 
