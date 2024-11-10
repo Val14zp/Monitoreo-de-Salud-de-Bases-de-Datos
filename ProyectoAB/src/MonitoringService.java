@@ -115,27 +115,37 @@ public class MonitoringService {
         return results;
     }
     public SwapUsage collectSwapUsage() {
-        String query = """
-            SELECT 
-                NVL((SELECT VALUE FROM V$OSSTAT WHERE STAT_NAME = 'SWAP_USED'), 0) / 
-                NVL((SELECT VALUE FROM V$OSSTAT WHERE STAT_NAME = 'SWAP_TOTAL'), 1) * 100 AS porcentaje_swap_utilizado,
-                100 - (NVL((SELECT VALUE FROM V$OSSTAT WHERE STAT_NAME = 'SWAP_USED'), 0) / 
-                       NVL((SELECT VALUE FROM V$OSSTAT WHERE STAT_NAME = 'SWAP_TOTAL'), 1) * 100) AS porcentaje_swap_disponible
-            FROM DUAL
-        """;
+        double totalSwap = 0.0;
+        double usedSwap = 0.0;
 
-        try (Connection connection = connectionManager.getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet resultSet = statement.executeQuery(query)) {
-            if (resultSet.next()) {
-                double usedSwap = resultSet.getDouble("porcentaje_swap_utilizado");
-                double freeSwap = resultSet.getDouble("porcentaje_swap_disponible");
-                return new SwapUsage(usedSwap, freeSwap);
+        try {
+            Process process = Runtime.getRuntime().exec("wmic pagefile get AllocatedBaseSize, CurrentUsage /Value");
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            String line;
+            Map<String, Double> swapValues = new HashMap<>();
+
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+                if (line.startsWith("AllocatedBaseSize=")) {
+                    double value = Double.parseDouble(line.split("=")[1].trim());
+                    totalSwap += value;
+                } else if (line.startsWith("CurrentUsage=")) {
+                    double value = Double.parseDouble(line.split("=")[1].trim());
+                    usedSwap += value;
+                }
             }
-        } catch (SQLException e) {
+            reader.close();
+            process.waitFor();
+
+            double freeSwap = totalSwap - usedSwap;
+
+            return new SwapUsage( usedSwap, freeSwap);
+
+        } catch (IOException | InterruptedException e) {
             e.printStackTrace();
         }
-        return new SwapUsage(0, 0);
+
+        return null;
     }
 
     public List<TableSize> collectLargestTables() {

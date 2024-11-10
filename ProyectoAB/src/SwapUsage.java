@@ -14,4 +14,5 @@ public class SwapUsage {
     public double getSwapFreePercentage() {
         return swapFreePercentage;
     }
+
 }

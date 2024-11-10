@@ -89,7 +89,7 @@ public class Dashboard extends JFrame {
 
     private void applyCustomRenderer(JFreeChart chart, DefaultCategoryDataset dataset) {
         CategoryPlot plot = chart.getCategoryPlot();
-        plot.setRenderer(new CustomBarRenderer(dataset, 1000000));
+        plot.setRenderer(new CustomBarRenderer(dataset, 1000));
     }
 
     // Método para actualizar el gráfico de uso de CPU
