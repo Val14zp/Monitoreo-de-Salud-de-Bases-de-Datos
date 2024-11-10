@@ -103,8 +103,8 @@ public class Dashboard extends JFrame {
 
     // Método para actualizar el gráfico de uso de SWAP
     public void updateSwapUsage(MemoryUsage swapUsage) {
-        //swapDataset.setValue(swapUsage.getUsedMemoryMB(), "Usado (MB)", swapUsage.getName());
-        //swapDataset.setValue(swapUsage.getFreeMemoryMB(), "Libre (MB)", swapUsage.getName());
+        swapDataset.setValue(swapUsage.getUsedMemoryMB(), "Usado (MB)", swapUsage.getName());
+        swapDataset.setValue(swapUsage.getFreeMemoryMB(), "Libre (MB)", swapUsage.getName());
     }
     // Método para actualizar el gráfico de conexiones activas
     public void updateActiveSessions(int activeSessions) {

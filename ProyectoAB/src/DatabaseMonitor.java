@@ -55,10 +55,10 @@ public class DatabaseMonitor {
                 databaseMemoryUsage = monitoringService.collectDatabaseMemoryUsage();
 
                 // Recolectar datos de SWAP
-                //swapUsage = monitoringService.collectSwapUsage();
+                swapUsage = monitoringService.collectSwapUsage();
 
                 // Recolectar datos de conexiones activas
-                //activeSessions = monitoringService.collectActiveSessions();
+                activeSessions = monitoringService.collectActiveSessions();
 
                 return null;
             }
