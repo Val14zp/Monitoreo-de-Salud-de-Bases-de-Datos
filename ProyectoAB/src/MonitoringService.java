@@ -14,20 +14,6 @@ public class MonitoringService {
         this.connectionManager = connectionManager;
     }
 
-    public String collectServerHost() {
-        String query = "SELECT sys_context('USERENV','SERVER_HOST') FROM dual";
-        try (Connection connection = connectionManager.getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet resultSet = statement.executeQuery(query)) {
-            if (resultSet.next()) {
-                return resultSet.getString(1);
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return "Unknown Host";
-    }
-
     public CpuUsage collectCpuUsage() {
         String query = """
             SELECT 
