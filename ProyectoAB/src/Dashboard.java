@@ -1,15 +1,9 @@
 import javax.swing.*;
 import java.awt.*;
-
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
-import org.jfree.chart.plot.CategoryPlot;
-import org.jfree.data.category.CategoryDataset;
 import org.jfree.data.category.DefaultCategoryDataset;
-import org.jfree.chart.renderer.category.BarRenderer;
-
-import java.awt.*;
 
 public class Dashboard extends JFrame {
     private DefaultCategoryDataset resourceDataset;
@@ -31,16 +25,42 @@ public class Dashboard extends JFrame {
         setLocationRelativeTo(null); // Centrar la ventana
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
+        // Crear datasets para los gráficos
+        resourceDataset = new DefaultCategoryDataset();
+        diskDataset = new DefaultCategoryDataset();
+
         // Crear gráficos
-        JFreeChart resourceChart = ChartFactory.createBarChart("Uso de Recursos", "Recurso", "Valor", resourceDataset);
+        JFreeChart resourceChart = ChartFactory.createBarChart(
+                "Uso de Recursos",
+                "Recurso",
+                "Valor",
+                resourceDataset
+        );
 
-        JFreeChart diskChart = ChartFactory.createBarChart("Uso de Espacio en Disco", "Tablespace", "Espacio (MB)", diskDataset);
+        JFreeChart diskChart = ChartFactory.createBarChart(
+                "Uso de Espacio en Disco",
+                "Tablespace",
+                "Espacio (MB)",
+                diskDataset
+        );
 
-        JFreeChart memoryChart = ChartFactory.createBarChart("Uso de Memoria RAM", "Tipo", "Memoria (MB)", memoryDataset);
+        JFreeChart memoryChart = ChartFactory.createBarChart(
+                "Uso de Memoria RAM",
+                "Tipo",
+                "Memoria (MB)",
+                memoryDataset
+        );
 
-        JFreeChart swapChart = ChartFactory.createBarChart("Uso de SWAP", "Tipo", "SWAP (MB)", swapDataset);
-
-        JFreeChart sessionChart = ChartFactory.createBarChart("Conexiones Activas", "Conexiones", "Número", sessionsDataset);
+        JFreeChart swapChart = ChartFactory.createBarChart(
+                "Uso de SWAP",
+                "Tipo",
+                "SWAP (MB)",
+                swapDataset
+        );
+        JFreeChart sessionChart = ChartFactory.createBarChart(
+                "Conexiones Activas",
+                "Conexiones",
+                "Número", sessionsDataset);
 
         // Crear paneles de gráficos
         ChartPanel resourceChartPanel = new ChartPanel(resourceChart);
@@ -49,7 +69,7 @@ public class Dashboard extends JFrame {
         ChartPanel swapChartPanel = new ChartPanel(swapChart);
         ChartPanel sessionChartPanel = new ChartPanel(sessionChart);
 
-        // Configurar el layout del Dashboard
+// Configurar el layout del Dashboard
         setLayout(new GridLayout(2, 2)); // Dos filas, dos columnas
 
         add(resourceChartPanel);
@@ -58,21 +78,7 @@ public class Dashboard extends JFrame {
         add(swapChartPanel);
         add(sessionChartPanel);
 
-// Aplicar el renderer personalizado a todos los gráficos
-        Paint[] colors = new Paint[]{Color.BLUE, Color.GREEN, Color.YELLOW};
-        CustomBarRenderer customRenderer = new CustomBarRenderer(colors);
-        CategoryPlot resourcePlot = (CategoryPlot) resourceChart.getPlot();
-        resourcePlot.setRenderer(customRenderer);
-        CategoryPlot diskPlot = (CategoryPlot) diskChart.getPlot();
-        diskPlot.setRenderer(customRenderer);
-        CategoryPlot memoryPlot = (CategoryPlot) memoryChart.getPlot();
-        memoryPlot.setRenderer(customRenderer);
-        CategoryPlot swapPlot = (CategoryPlot) swapChart.getPlot();
-        swapPlot.setRenderer(customRenderer);
-        CategoryPlot sessionPlot = (CategoryPlot) sessionChart.getPlot();
-        sessionPlot.setRenderer(customRenderer);
     }
-
 
     // Método para actualizar el gráfico de uso de recursos
     public void updateResourceUsage(String name, long value) {
@@ -88,6 +94,7 @@ public class Dashboard extends JFrame {
 
     // Método para actualizar el gráfico de uso de memoria
     public void updateMemoryUsage(MemoryUsage memoryUsage) {
+        System.out.println(memoryUsage.getUsedMemoryMB());
         memoryDataset.setValue(memoryUsage.getUsedMemoryMB(), "Usado (MB)", memoryUsage.getName());
         memoryDataset.setValue(memoryUsage.getFreeMemoryMB(), "Libre (MB)", memoryUsage.getName());
 
@@ -96,10 +103,9 @@ public class Dashboard extends JFrame {
 
     // Método para actualizar el gráfico de uso de SWAP
     public void updateSwapUsage(MemoryUsage swapUsage) {
-        swapDataset.setValue(swapUsage.getUsedMemoryMB(), "Usado (MB)", swapUsage.getName());
-        swapDataset.setValue(swapUsage.getFreeMemoryMB(), "Libre (MB)", swapUsage.getName());
+        //swapDataset.setValue(swapUsage.getUsedMemoryMB(), "Usado (MB)", swapUsage.getName());
+        //swapDataset.setValue(swapUsage.getFreeMemoryMB(), "Libre (MB)", swapUsage.getName());
     }
-
     // Método para actualizar el gráfico de conexiones activas
     public void updateActiveSessions(int activeSessions) {
         sessionsDataset.setValue(activeSessions, "Conexiones", "Activas");
@@ -115,26 +121,4 @@ public class Dashboard extends JFrame {
     }
 
 
-}
-
-
-class CustomBarRenderer extends BarRenderer {
-    private static final long serialVersionUID = 1L;
-    private final Paint[] colors;
-
-    public CustomBarRenderer(final Paint[] colors) {
-        this.colors = colors;
-    }
-
-    @Override
-    public Paint getItemPaint(final int row, final int column) {
-        CategoryDataset dataset = getPlot().getDataset();
-        Number value = dataset.getValue(row, column);
-        System.out.println((value.doubleValue() * 100) / 2);
-        if (value != null && value.doubleValue() > (value.doubleValue() * 100) / 2) {
-            return Color.RED;
-        } else {
-            return colors[column % colors.length];
-        }
-    }
 }

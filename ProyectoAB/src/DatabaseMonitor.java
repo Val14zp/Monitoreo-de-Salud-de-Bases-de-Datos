@@ -40,11 +40,10 @@ public class DatabaseMonitor {
         SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
             private List<ResourceUsage> resourceUsageData;
             private List<DiskSpaceUsage> diskSpaceData;
-            private MemoryUsage databaseMemoryUsage = new MemoryUsage("", 0, 0);
-            ;
-            private MemoryUsage systemMemoryUsage = new MemoryUsage("", 0, 0);
-            private MemoryUsage swapUsage = new MemoryUsage("", 0, 0);
-            private int activeSessions = 0;
+            private MemoryUsage databaseMemoryUsage =  new MemoryUsage("",0,0);;
+            private MemoryUsage systemMemoryUsage = new MemoryUsage("",0,0);
+            private MemoryUsage swapUsage;
+            private int activeSessions;
 
             @Override
             protected Void doInBackground() throws Exception {
@@ -56,10 +55,10 @@ public class DatabaseMonitor {
                 databaseMemoryUsage = monitoringService.collectDatabaseMemoryUsage();
 
                 // Recolectar datos de SWAP
-                swapUsage = monitoringService.collectSwapUsage();
+                //swapUsage = monitoringService.collectSwapUsage();
 
                 // Recolectar datos de conexiones activas
-                activeSessions = monitoringService.collectActiveSessions();
+                //activeSessions = monitoringService.collectActiveSessions();
 
                 return null;
             }
@@ -98,6 +97,7 @@ public class DatabaseMonitor {
         };
         worker.execute();
     }
+
 
 
     // Detener el monitoreo y cerrar la conexión
