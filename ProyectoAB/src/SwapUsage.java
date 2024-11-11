@@ -2,7 +2,7 @@ public class SwapUsage {
     private double swapUsedPercentage;
     private double swapFreePercentage;
 
-    public SwapUsage(double swapUsedPercentage, double swapFreePercentage) {
+    public SwapUsage(double swapUsedPercentage, double swapFreePercentage, String s) {
         this.swapUsedPercentage = swapUsedPercentage;
         this.swapFreePercentage = swapFreePercentage;
     }

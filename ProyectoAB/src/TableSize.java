@@ -20,4 +20,5 @@ public class TableSize {
     public double getSizeGb() {
         return sizeGb;
     }
+
 }

@@ -48,6 +48,11 @@ public class DatabaseMonitor {
             private List<QueryPerformance> topQueries;
             private List<AlertLog> criticalAlerts;
             private SessionUsage sessionUsage;
+            private List<TableSize> largestTables;
+            private List<RedoLogUsage> redoLogData;
+            private List<DiskIOUsage> diskIOUsageData;
+            private List<ResourceIntensiveQuery> resourceIntensiveQueries;
+            private BackupInfo backupInfo;
 
             @Override
             protected Void doInBackground() throws Exception {
@@ -71,6 +76,19 @@ public class DatabaseMonitor {
 
                 // Recolectar datos de sesiones activas
                 sessionUsage = monitoringService.collectSessionUsage();
+
+                // Recolectar las tablas más grandes
+                largestTables = monitoringService.collectLargestTables();
+
+                // Recolectar los redolog
+                redoLogData = monitoringService.collectRedoLogUsage();
+
+                // Recolectar datos de IO en disco
+                diskIOUsageData = monitoringService.collectDiskIOUsage();
+
+                resourceIntensiveQueries = monitoringService.collectResourceIntensiveQueries();
+
+                backupInfo = monitoringService.collectBackupInfo();
 
                 return null;
             }
@@ -105,7 +123,19 @@ public class DatabaseMonitor {
                     // Actualizar sesiones activas
                     dashboard.updateSessionUsage(sessionUsage);
 
-                    writeToFile(cpuUsage, ramUsage, swapUsage, tablespaceData, topQueries, criticalAlerts, sessionUsage);
+                    // Actualizar las tablas más grandes
+                    dashboard.updateLargestTables(largestTables);
+
+                    // Actualizar redolog
+                    dashboard.updateRedoLogUsage(redoLogData);
+
+                    dashboard.updateDiskIOUsage(diskIOUsageData);
+
+                    dashboard.updateResourceIntensiveQueries(resourceIntensiveQueries);
+
+                    dashboard.updateBackupTable(backupInfo);
+
+                    writeToFile(cpuUsage, ramUsage, swapUsage, tablespaceData, topQueries, criticalAlerts, sessionUsage, largestTables, redoLogData, diskIOUsageData, resourceIntensiveQueries, backupInfo);
 
                 } catch (Exception ex) {
                     ex.printStackTrace();
@@ -114,11 +144,12 @@ public class DatabaseMonitor {
         };
         worker.execute();
     }
+
     private void writeToFile(CpuUsage cpuUsage, RamUsage ramUsage, SwapUsage swapUsage,
                              List<TablespaceUsage> tablespaceData, List<QueryPerformance> topQueries,
-                             List<AlertLog> criticalAlerts, SessionUsage sessionUsage) {
+                             List<AlertLog> criticalAlerts, SessionUsage sessionUsage,
+                             List<TableSize> largestTables, List<RedoLogUsage> redoLogData, List<DiskIOUsage> diskIOUsageData, List<ResourceIntensiveQuery> resourceIntensiveQueries, BackupInfo backupInfo) {
         String fileName = "historico.txt";
-
 
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(fileName, true))) {
             writer.write("-----------------------------------------------------------Registro de Monitoreo:----------------------------------------------------------- \n");
@@ -152,6 +183,40 @@ public class DatabaseMonitor {
 
             // Registrar Session Usage
             writer.write("Session Usage: " + sessionUsage.getActiveConnections() + " conexiones activas, " + sessionUsage.getConcurrentSessions() + " sesiones concurrentes\n");
+
+            // Registrar Largest Tables
+            writer.write("Largest Tables:\n");
+            for (TableSize table : largestTables) {
+                writer.write("  - Tabla: " + table.getTableName() + ", Filas: " + table.getRows() + ", Tamaño: " + table.getSizeGb() + "GB\n");
+            }
+
+            // Registrar Redo Log Usage
+            writer.write("Redo Log Usage:\n");
+            for (RedoLogUsage redoLog : redoLogData) {
+                writer.write("  - Grupo: " + redoLog.getGroup() + ", Secuencia: " + redoLog.getSequence() +
+                        ", Archivado: " + redoLog.getArchived() + ", Estado: " + redoLog.getStatus() + "\n");
+            }
+
+            // Registrar Disk IO Usage
+            writer.write("Disk IO Usage:\n");
+            for (DiskIOUsage diskIO : diskIOUsageData) {
+                writer.write("  - Instancia: " + diskIO.getInstanceId() + ", Lectura: " + diskIO.getReadMb() + "MB, Escritura: " + diskIO.getWriteMb() + "MB, Estado: " + diskIO.getStatus() + "\n");
+            }
+
+            // Registrar consultas SQL que más consumen recursos
+            writer.write("SQL Queries Consuming Most Resources:\n");
+            for (ResourceIntensiveQuery query : resourceIntensiveQueries) {
+                writer.write("  - SQL ID: " + query.getSqlId() +
+                        ", Ejecutadas: " + query.getExecutions() +
+                        ", Tiempo Total: " + query.getElapsedTime() + "s" +
+                        ", Tiempo CPU: " + query.getCpuTime() + "s" +
+                        ", Lecturas de Disco: " + query.getDiskReads() +
+                        ", Buffer Gets: " + query.getBufferGets() + "\n");
+            }
+            writer.write("Backup Information:\n");
+            writer.write("  - Última Fecha de Respaldo: " + backupInfo.getLastBackupDate() + "\n");
+            writer.write("  - Tamaño Total del Respaldo: " + backupInfo.getTotalBackupSizeGb() + " GB\n");
+
 
             writer.write("-----------------------------------------------------------Fin del Registro-----------------------------------------------------------\n\n");
 

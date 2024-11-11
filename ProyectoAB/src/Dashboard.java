@@ -21,6 +21,13 @@ public class Dashboard extends JFrame {
     private DefaultCategoryDataset sessionsDataset;
     private DefaultCategoryDataset queriesDataset;
     private JTextArea alertsArea;
+    private JTable largestTablesTable; // Para mostrar las tablas más grandes
+    private JTable redoLogTable;
+    private DefaultCategoryDataset diskIODataset;
+    private DefaultCategoryDataset resourceIntensiveQueryDataset;
+    private JTable resourceIntensiveQueryTable;
+    private JTable backupTable;
+
 
     public Dashboard() {
         // Crear datasets para los gráficos
@@ -30,13 +37,9 @@ public class Dashboard extends JFrame {
         tablespaceDataset = new DefaultCategoryDataset();
         sessionsDataset = new DefaultCategoryDataset();
         queriesDataset = new DefaultCategoryDataset();
+        diskIODataset = new DefaultCategoryDataset();
         alertsArea = new JTextArea(10, 30);
         alertsArea.setEditable(false);
-
-        setTitle("Monitoreo de Base de Datos");
-        setSize(1200, 800);
-        setLocationRelativeTo(null); // Centrar la ventana
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
         // Crear gráficos
         JFreeChart cpuChart = ChartFactory.createBarChart("Uso de CPU", "Tipo", "Porcentaje", cpuDataset);
@@ -45,14 +48,55 @@ public class Dashboard extends JFrame {
         JFreeChart tablespaceChart = ChartFactory.createBarChart("Uso de Tablespaces", "Tablespace", "Porcentaje", tablespaceDataset);
         JFreeChart sessionsChart = ChartFactory.createBarChart("Conexiones Activas", "Tipo", "Número", sessionsDataset);
         JFreeChart queriesChart = ChartFactory.createBarChart("Consultas Más Intensivas", "Consulta", "Latencia (s)", queriesDataset);
+        JFreeChart diskIOChart = ChartFactory.createBarChart("Disk IO Usage", "Instancia", "MB", diskIODataset);
 
-        // Crear paneles de gráficos
-        ChartPanel cpuChartPanel = new ChartPanel(cpuChart);
-        ChartPanel ramChartPanel = new ChartPanel(ramChart);
-        ChartPanel swapChartPanel = new ChartPanel(swapChart);
-        ChartPanel tablespaceChartPanel = new ChartPanel(tablespaceChart);
-        ChartPanel sessionsChartPanel = new ChartPanel(sessionsChart);
-        ChartPanel queriesChartPanel = new ChartPanel(queriesChart);
+        // Crear paneles de gráficos más pequeños
+        ChartPanel cpuChartPanel = new ChartPanel(cpuChart, false, true, false, false, true);
+        cpuChartPanel.setPreferredSize(new Dimension(300, 200));
+        ChartPanel ramChartPanel = new ChartPanel(ramChart, false, true, false, false, true);
+        ramChartPanel.setPreferredSize(new Dimension(300, 200));
+        ChartPanel swapChartPanel = new ChartPanel(swapChart, false, true, false, false, true);
+        swapChartPanel.setPreferredSize(new Dimension(300, 200));
+        ChartPanel tablespaceChartPanel = new ChartPanel(tablespaceChart, false, true, false, false, true);
+        tablespaceChartPanel.setPreferredSize(new Dimension(300, 200));
+        ChartPanel sessionsChartPanel = new ChartPanel(sessionsChart, false, true, false, false, true);
+        sessionsChartPanel.setPreferredSize(new Dimension(300, 200));
+        ChartPanel queriesChartPanel = new ChartPanel(queriesChart, false, true, false, false, true);
+        queriesChartPanel.setPreferredSize(new Dimension(300, 200));
+        ChartPanel diskIOChartPanel = new ChartPanel(diskIOChart, false, true, false, false, true);
+        diskIOChartPanel.setPreferredSize(new Dimension(300, 200));
+
+        // Configurar la tabla de tablas más grandes
+        String[] columnNames = {"Tabla", "Filas", "Tamaño (GB)"};
+        Object[][] initialData = new Object[0][3]; // Sin datos iniciales
+        largestTablesTable = new JTable(initialData, columnNames);
+        JScrollPane largestTablesScrollPane = new JScrollPane(largestTablesTable);
+        largestTablesScrollPane.setPreferredSize(new Dimension(300, 200));
+
+        // Configurar la tabla de consultas intensivas
+        String[] columnNames2 = {"SQL ID", "Ejecutadas", "Tiempo Total (s)", "Tiempo CPU (s)", "Lecturas de Disco", "Buffer Gets"};
+        Object[][] initialData2 = new Object[0][6]; // Datos iniciales vacíos
+        resourceIntensiveQueryTable = new JTable(initialData2, columnNames2);
+        JScrollPane resourceIntensiveQueryScrollPane = new JScrollPane(resourceIntensiveQueryTable);
+        resourceIntensiveQueryScrollPane.setPreferredSize(new Dimension(600, 200));
+
+        // Configurar la tabla de redologs
+        String[] redoLogColumns = {"Grupo", "Secuencia", "Archivado", "Estado"};
+        Object[][] redoLogData = new Object[0][4]; // Sin datos iniciales
+        redoLogTable = new JTable(redoLogData, redoLogColumns);
+        JScrollPane redoLogScrollPane = new JScrollPane(redoLogTable);
+        redoLogScrollPane.setPreferredSize(new Dimension(300, 200));
+
+        String[] backupColumnNames = {"Última Fecha de Respaldo", "Tamaño Total (GB)"};
+        Object[][] backupInitialData = new Object[0][2]; // Sin datos iniciales
+        backupTable = new JTable(backupInitialData, backupColumnNames);
+        JScrollPane backupScrollPane = new JScrollPane(backupTable);
+        backupScrollPane.setPreferredSize(new Dimension(300, 100));
+
+        // Crear un panel para la tabla de respaldo y agregarlo al layout
+        JPanel backupPanel = new JPanel(new BorderLayout());
+        backupPanel.add(new JLabel("Información de Respaldo"), BorderLayout.NORTH);
+        backupPanel.add(backupScrollPane, BorderLayout.CENTER);
 
         // Configurar el panel de alertas
         JScrollPane alertsScrollPane = new JScrollPane(alertsArea);
@@ -61,31 +105,45 @@ public class Dashboard extends JFrame {
         alertsPanel.add(alertsScrollPane, BorderLayout.CENTER);
 
         // Configurar el layout del Dashboard
-        setLayout(new GridLayout(3, 2)); // Tres filas, dos columnas
+        setTitle("Monitoreo de Base de Datos");
+        setSize(800, 600); // Tamaño más pequeño de la ventana
+        setLocationRelativeTo(null); // Centrar la ventana
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-        add(cpuChartPanel);
-        add(ramChartPanel);
-        add(swapChartPanel);
-        add(tablespaceChartPanel);
-        add(sessionsChartPanel);
-        add(queriesChartPanel);
+        JPanel mainPanel = new JPanel(new BorderLayout());
+        JPanel chartsPanel = new JPanel(new GridLayout(0, 2)); // Número de filas determinado por la cantidad de componentes
+        chartsPanel.add(cpuChartPanel);
+        chartsPanel.add(ramChartPanel);
+        chartsPanel.add(swapChartPanel);
+        chartsPanel.add(tablespaceChartPanel);
+        chartsPanel.add(sessionsChartPanel);
+        chartsPanel.add(queriesChartPanel);
+        chartsPanel.add(diskIOChartPanel);
+        chartsPanel.add(largestTablesScrollPane); // Añadir la tabla de tablas más grandes
+        chartsPanel.add(redoLogScrollPane);
+        chartsPanel.add(resourceIntensiveQueryScrollPane); // Añadir la tabla de consultas intensivas
+        chartsPanel.add(backupPanel);
 
-        // Aplicar el renderer personalizado a todos los gráficos
+        // Añadir el panel principal al JScrollPane
+        JScrollPane mainScrollPane = new JScrollPane(chartsPanel);
+        mainScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        mainPanel.add(mainScrollPane, BorderLayout.CENTER);
+        mainPanel.add(alertsPanel, BorderLayout.SOUTH);
+
+        setContentPane(mainPanel);
+
+        // Aplicar el renderer personalizado a todos los gráficos (método hipotético)
         applyCustomRenderer(cpuChart, cpuDataset);
         applyCustomRenderer(ramChart, ramDataset);
         applyCustomRenderer(swapChart, swapDataset);
         applyCustomRenderer(tablespaceChart, tablespaceDataset);
         applyCustomRenderer(sessionsChart, sessionsDataset);
         applyCustomRenderer(queriesChart, queriesDataset);
-
-        // Añadir panel de alertas como ventana separada
-        JFrame alertsFrame = new JFrame("Alertas Críticas");
-        alertsFrame.setSize(500, 300);
-        alertsFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        alertsFrame.setLocationRelativeTo(null);
-        alertsFrame.add(alertsPanel);
-        alertsFrame.setVisible(true);
+        applyCustomRenderer(diskIOChart, diskIODataset);
     }
+
+
+
 
     private void applyCustomRenderer(JFreeChart chart, DefaultCategoryDataset dataset) {
         CategoryPlot plot = chart.getCategoryPlot();
@@ -130,6 +188,66 @@ public class Dashboard extends JFrame {
         }
     }
 
+    // Método para actualizar la tabla de las tablas más grandes
+    public void updateLargestTables(List<TableSize> largestTables) {
+        String[] columnNames = {"Tabla", "Filas", "Tamaño (GB)"};
+        Object[][] data = new Object[largestTables.size()][3];
+        for (int i = 0; i < largestTables.size(); i++) {
+            TableSize table = largestTables.get(i);
+            data[i][0] = table.getTableName();
+            data[i][1] = table.getRows();
+            data[i][2] = table.getSizeGb();
+        }
+        largestTablesTable.setModel(new javax.swing.table.DefaultTableModel(data, columnNames));
+    }
+    // Método para actualizar la tabla de los redologs
+    public void updateRedoLogUsage(List<RedoLogUsage> redoLogs) {
+        String[] columnNames = {"Grupo", "Secuencia", "Archivado", "Estado"};
+        Object[][] data = new Object[redoLogs.size()][4];
+        for (int i = 0; i < redoLogs.size(); i++) {
+            RedoLogUsage redoLog = redoLogs.get(i);
+            data[i][0] = redoLog.getGroup();
+            data[i][1] = redoLog.getSequence();
+            data[i][2] = redoLog.getArchived();
+            data[i][3] = redoLog.getStatus();
+        }
+        redoLogTable.setModel(new javax.swing.table.DefaultTableModel(data, columnNames));
+    }
+
+    public void updateDiskIOUsage(List<DiskIOUsage> diskIOUsageData) {
+        diskIODataset.clear();
+        for (DiskIOUsage diskIO : diskIOUsageData) {
+            diskIODataset.setValue(diskIO.getReadMb(), "Lectura (MB)", "Instancia " + diskIO.getInstanceId());
+            diskIODataset.setValue(diskIO.getWriteMb(), "Escritura (MB)", "Instancia " + diskIO.getInstanceId());
+        }
+    }
+
+    public void updateBackupTable(BackupInfo backupInfo) {
+        String[] columnNames = {"Última Fecha de Respaldo", "Tamaño Total (GB)"};
+        Object[][] data = new Object[1][2];
+        data[0][0] = backupInfo.getLastBackupDate(); // Fecha del respaldo
+        data[0][1] = backupInfo.getTotalBackupSizeGb(); // Tamaño total en GB
+
+        backupTable.setModel(new javax.swing.table.DefaultTableModel(data, columnNames));
+    }
+
+
+    public void updateResourceIntensiveQueries(List<ResourceIntensiveQuery> queries) {
+        String[] columnNames = {"SQL ID", "Ejecutadas", "Tiempo Total (s)", "Tiempo CPU (s)", "Lecturas de Disco", "Buffer Gets"};
+        Object[][] data = new Object[queries.size()][6];
+        for (int i = 0; i < queries.size(); i++) {
+            ResourceIntensiveQuery query = queries.get(i);
+            data[i][0] = query.getSqlId();
+            data[i][1] = query.getExecutions();
+            data[i][2] = query.getElapsedTime();
+            data[i][3] = query.getCpuTime();
+            data[i][4] = query.getDiskReads();
+            data[i][5] = query.getBufferGets();
+        }
+        resourceIntensiveQueryTable.setModel(new javax.swing.table.DefaultTableModel(data, columnNames));
+    }
+
+
     // Método para mostrar alertas críticas
     public void updateCriticalAlerts(List<AlertLog> criticalAlerts) {
         alertsArea.setText(""); // Limpiar el área de texto
@@ -149,7 +267,6 @@ public class Dashboard extends JFrame {
         alertsArea.setText("");
     }
 
-
     class CustomBarRenderer extends BarRenderer {
         private final CategoryDataset dataset;
         private final double alertThreshold;
@@ -163,37 +280,22 @@ public class Dashboard extends JFrame {
         public void drawItem(Graphics2D g2, CategoryItemRendererState state, Rectangle2D dataArea,
                              CategoryPlot plot, CategoryAxis domainAxis, ValueAxis rangeAxis,
                              CategoryDataset dataset, int row, int column, int pass) {
-            // Llamar al método original para dibujar las barras
             super.drawItem(g2, state, dataArea, plot, domainAxis, rangeAxis, dataset, row, column, pass);
 
-            // Obtener el valor del dataset
             Number value = dataset.getValue(row, column);
             if (value != null) {
                 double barValue = value.doubleValue();
 
-                // Coordenadas para dibujar la barra
-                double barStart = domainAxis.getCategoryStart(column, getColumnCount(), dataArea, plot.getDomainAxisEdge());
-                double barEnd = domainAxis.getCategoryEnd(column, getColumnCount(), dataArea, plot.getDomainAxisEdge());
-                double barWidth = barEnd - barStart;
-                double barX = barStart + (barWidth * row / getRowCount());
-                double barY = rangeAxis.valueToJava2D(barValue, dataArea, plot.getRangeAxisEdge());
-
-                // Posiciones de la barra en el área del gráfico
-                Rectangle2D bar = new Rectangle2D.Double(barX, barY, barWidth * 0.8, dataArea.getMaxY() - barY);
-
-                // Si el valor supera el umbral, dibujar una alerta personalizada
                 if (barValue > alertThreshold) {
                     String alertText = "¡Alerta! Alto";
                     FontMetrics metrics = g2.getFontMetrics();
                     int textWidth = metrics.stringWidth(alertText);
 
-                    // Dibujar texto encima de la barra
                     g2.setColor(Color.RED);
                     g2.setFont(new Font("Arial", Font.BOLD, 12));
-                    g2.drawString(alertText, (int) (bar.getCenterX() - textWidth / 2), (int) (bar.getMinY() - 5));
+                    g2.drawString(alertText, (int) (dataArea.getCenterX() - textWidth / 2), (int) (dataArea.getMinY() - 5));
                 }
             }
         }
     }
 }
-
