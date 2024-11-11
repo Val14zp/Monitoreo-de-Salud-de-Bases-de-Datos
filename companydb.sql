@@ -2362,3 +2362,44 @@ CREATE INDEX loc_country_ix
 COMMIT;
 
 PROMPT =====Fin======
+
+
+CREATE OR REPLACE PROCEDURE run_heavy_queries AS
+BEGIN
+    -- Consulta 1
+FOR result IN (SELECT r.region_name, COUNT(DISTINCT l.location_id) AS num_locations,
+                          COUNT(DISTINCT d.department_id) AS num_departments, AVG(e.salary) AS avg_salary,
+                          MAX(e.salary) AS max_salary
+                   FROM regions r
+                            JOIN countries c ON r.region_id = c.region_id
+                            JOIN locations l ON c.country_id = l.country_id
+                            JOIN departments d ON l.location_id = d.location_id
+                            JOIN employees e ON d.department_id = e.department_id
+                   GROUP BY r.region_name) LOOP
+            -- Aquí podrías guardar o procesar los resultados
+            DBMS_OUTPUT.PUT_LINE('Region: ' || result.region_name || ', Locations: ' || result.num_locations);
+END LOOP;
+
+    -- Repite el bloque anterior para las otras consultas...
+END run_heavy_queries;
+/
+
+
+BEGIN
+    DBMS_SCHEDULER.create_job (
+            job_name        => 'run_heavy_queries_job',
+            job_type        => 'PLSQL_BLOCK',
+            job_action      => 'BEGIN run_heavy_queries; END;',
+            start_date      => SYSTIMESTAMP,
+            repeat_interval => 'FREQ=MINUTELY; INTERVAL=1',  -- Cada hora
+            enabled         => TRUE
+    );
+END;
+/
+
+
+BEGIN
+    DBMS_SCHEDULER.drop_job('run_heavy_queries_job');
+END;
+/
+

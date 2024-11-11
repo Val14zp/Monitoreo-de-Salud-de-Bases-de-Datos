@@ -90,6 +90,7 @@ public class DatabaseMonitor {
 
                 backupInfo = monitoringService.collectBackupInfo();
 
+
                 return null;
             }
 
