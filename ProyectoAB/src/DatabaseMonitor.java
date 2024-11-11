@@ -1,4 +1,7 @@
 import javax.swing.*;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.List;
 import java.awt.event.ActionEvent;
@@ -102,6 +105,8 @@ public class DatabaseMonitor {
                     // Actualizar sesiones activas
                     dashboard.updateSessionUsage(sessionUsage);
 
+                    writeToFile(cpuUsage, ramUsage, swapUsage, tablespaceData, topQueries, criticalAlerts, sessionUsage);
+
                 } catch (Exception ex) {
                     ex.printStackTrace();
                 }
@@ -109,6 +114,52 @@ public class DatabaseMonitor {
         };
         worker.execute();
     }
+    private void writeToFile(CpuUsage cpuUsage, RamUsage ramUsage, SwapUsage swapUsage,
+                             List<TablespaceUsage> tablespaceData, List<QueryPerformance> topQueries,
+                             List<AlertLog> criticalAlerts, SessionUsage sessionUsage) {
+        String fileName = "historico.txt";
+
+
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(fileName, true))) {
+            writer.write("-----------------------------------------------------------Registro de Monitoreo:----------------------------------------------------------- \n");
+
+            // Registrar CPU Usage
+            writer.write("CPU Usage: " + cpuUsage.getCpuUsedPercentage() + "% usado de " + cpuUsage.getCpuTotal() + "% total\n");
+
+            // Registrar RAM Usage
+            writer.write("RAM Usage: " + ramUsage.getRamUsedGb() + "GB usado de " + ramUsage.getRamTotalGb() + "GB total\n");
+
+            // Registrar SWAP Usage
+            writer.write("SWAP Usage: " + swapUsage.getSwapUsedPercentage() + "% usado, " + swapUsage.getSwapFreePercentage() + "% libre\n");
+
+            // Registrar Tablespace Usage
+            writer.write("Tablespace Usage:\n");
+            for (TablespaceUsage ts : tablespaceData) {
+                writer.write("  - " + ts.getTablespaceName() + ": " + ts.getUsedPercentage() + "% usado, " + ts.getFreePercentage() + "% libre\n");
+            }
+
+            // Registrar Query Performance
+            writer.write("Top Queries by Latency:\n");
+            for (QueryPerformance query : topQueries) {
+                writer.write("  - SQL ID: " + query.getSqlId() + ", Frecuencia: " + query.getFrequency() + ", Latencia Promedio: " + query.getAverageLatency() + "s\n");
+            }
+
+            // Registrar Critical Alerts
+            writer.write("-----------------------------------------------------------Alertas:-----------------------------------------------------------\n");
+            for (AlertLog alert : criticalAlerts) {
+                writer.write("  - Fecha: " + alert.getDate() + ", Descripción: " + alert.getDescription() + ", Conteo: " + alert.getCount() + "\n");
+            }
+
+            // Registrar Session Usage
+            writer.write("Session Usage: " + sessionUsage.getActiveConnections() + " conexiones activas, " + sessionUsage.getConcurrentSessions() + " sesiones concurrentes\n");
+
+            writer.write("-----------------------------------------------------------Fin del Registro-----------------------------------------------------------\n\n");
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
 
     // Detiene el monitoreo y cierra la conexión
     public void stopMonitoring() {
