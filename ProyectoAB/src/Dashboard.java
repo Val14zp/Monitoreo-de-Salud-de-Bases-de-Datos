@@ -133,34 +133,20 @@ public class Dashboard extends JFrame {
         setContentPane(mainPanel);
 
         // Aplicar el renderer personalizado a todos los gráficos (método hipotético)
-        applyCustomRenderer(cpuChart, cpuDataset);
-        applyCustomRenderer(ramChart, ramDataset);
-        applyCustomRenderer(swapChart, swapDataset);
-        applyCustomRenderer(tablespaceChart, tablespaceDataset);
-        applyCustomRenderer(sessionsChart, sessionsDataset);
-        applyCustomRenderer(queriesChart, queriesDataset);
-        applyCustomRenderer(diskIOChart, diskIODataset);
+        applyCustomRenderer(cpuChart, cpuDataset, 0);
+        applyCustomRenderer(ramChart, ramDataset,  50);
+        applyCustomRenderer(swapChart, swapDataset, 80);
+        applyCustomRenderer(tablespaceChart, tablespaceDataset,50);
+        applyCustomRenderer(sessionsChart, sessionsDataset,50);
+        applyCustomRenderer(queriesChart, queriesDataset,50);
+        applyCustomRenderer(diskIOChart, diskIODataset,50);
     }
 
-
-
-
-    private void applyCustomRenderer(JFreeChart chart, DefaultCategoryDataset dataset) {
+    private void applyCustomRenderer(JFreeChart chart, DefaultCategoryDataset dataset, double alertThreshold) {
         CategoryPlot plot = chart.getCategoryPlot();
-        plot.setRenderer(new CustomBarRenderer(dataset, 1000));
+        plot.setRenderer(new CustomBarRenderer(dataset, alertThreshold));
     }
 
-    // Método para actualizar el gráfico de uso de CPU
-    public void updateCpuUsage(CpuUsage cpuUsage) {
-        cpuDataset.setValue(cpuUsage.getCpuUsedPercentage(), "Usado (%)", "CPU Usada");
-        cpuDataset.setValue(cpuUsage.getCpuTotal(), "Total (%)", "CPU Total");
-    }
-
-    // Método para actualizar el gráfico de uso de RAM
-    public void updateRamUsage(RamUsage ramUsage) {
-        ramDataset.setValue(ramUsage.getRamUsedGb(), "Usado (GB)", "RAM Usada");
-        ramDataset.setValue(ramUsage.getRamTotalGb(), "Total (GB)", "RAM Total");
-    }
 
     // Método para actualizar el gráfico de uso de SWAP
     public void updateSwapUsage(SwapUsage swapUsage) {
@@ -168,23 +154,26 @@ public class Dashboard extends JFrame {
         swapDataset.setValue(swapUsage.getSwapFreePercentage(), "Libre (%)", "SWAP Libre");
     }
 
-    // Método para actualizar el gráfico de uso de Tablespaces
-    public void updateTablespaceUsage(String tablespaceName, double usedPercentage, double freePercentage) {
-        tablespaceDataset.setValue(usedPercentage, "Usado (%)", tablespaceName);
-        tablespaceDataset.setValue(freePercentage, "Libre (%)", tablespaceName);
-    }
-
     // Método para actualizar el gráfico de conexiones activas
     public void updateSessionUsage(SessionUsage sessionUsage) {
         sessionsDataset.setValue(sessionUsage.getActiveConnections(), "Conexiones", "Activas");
         sessionsDataset.setValue(sessionUsage.getConcurrentSessions(), "Sesiones", "Concurrentes");
     }
+    // Método para actualizar el gráfico de uso de RAM
+    public void updateRamUsage(RamUsage ramUsage) {
+        ramDataset.setValue(ramUsage.getRamUsedGb(), "Usado (GB)", "RAM Usada");
+        ramDataset.setValue(ramUsage.getRamTotalGb(), "Total (GB)", "RAM Total");
+        if (ramUsage.getStatus().contains("ALERTA")) {
+            alertsArea.append(ramUsage.getStatus() + "\n");
+        }
+    }
 
-    // Método para actualizar el gráfico de consultas más intensivas
-    public void updateTopQueries(List<QueryPerformance> topQueries) {
-        queriesDataset.clear();
-        for (QueryPerformance query : topQueries) {
-            queriesDataset.setValue(query.getAverageLatency(), "Latencia Promedio (s)", query.getSqlId());
+    // Método para actualizar el gráfico de uso de Tablespaces
+    public void updateTablespaceUsage(String tablespaceName, double usedPercentage, double freePercentage, String alertStatus) {
+        tablespaceDataset.setValue(usedPercentage, "Usado (%)", tablespaceName);
+        tablespaceDataset.setValue(freePercentage, "Libre (%)", tablespaceName);
+        if (alertStatus.contains("ALERTA")) {
+            alertsArea.append(alertStatus + " en " + tablespaceName + "\n");
         }
     }
 
@@ -214,11 +203,34 @@ public class Dashboard extends JFrame {
         redoLogTable.setModel(new javax.swing.table.DefaultTableModel(data, columnNames));
     }
 
+    // Método para actualizar el gráfico de uso de CPU
+    public void updateCpuUsage(CpuUsage cpuUsage) {
+        cpuDataset.setValue(cpuUsage.getCpuUsedPercentage(), "Usado (%)", "CPU Usada");
+        cpuDataset.setValue(cpuUsage.getCpuTotal(), "Total (%)", "CPU Total");
+        if (cpuUsage.getStatus().contains("ALERTA")) {
+            alertsArea.append(cpuUsage.getStatus() + "\n");
+        }
+    }
+    // Método para actualizar el gráfico de consultas más intensivas
+    public void updateTopQueries(List<QueryPerformance> queries) {
+        queriesDataset.clear();
+        for (QueryPerformance query : queries) {
+            queriesDataset.setValue(query.getAverageLatency(), "Latencia Promedio (s)", query.getSqlId());
+            if (query.getStatus().contains("ALERTA")) {
+                alertsArea.append(query.getStatus() + " para SQL ID: " + query.getSqlId() + "\n");
+            }
+        }
+    }
+
+
     public void updateDiskIOUsage(List<DiskIOUsage> diskIOUsageData) {
         diskIODataset.clear();
         for (DiskIOUsage diskIO : diskIOUsageData) {
             diskIODataset.setValue(diskIO.getReadMb(), "Lectura (MB)", "Instancia " + diskIO.getInstanceId());
             diskIODataset.setValue(diskIO.getWriteMb(), "Escritura (MB)", "Instancia " + diskIO.getInstanceId());
+            if (diskIO.getReadMb() > 1000 || diskIO.getWriteMb() > 1000) {
+                alertsArea.append("¡Alerta Crítica! IO de Disco excedió los 1000 MB en Instancia " + diskIO.getInstanceId() + ".\n");
+            }
         }
     }
 
@@ -283,18 +295,13 @@ public class Dashboard extends JFrame {
             super.drawItem(g2, state, dataArea, plot, domainAxis, rangeAxis, dataset, row, column, pass);
 
             Number value = dataset.getValue(row, column);
-            if (value != null) {
-                double barValue = value.doubleValue();
-
-                if (barValue > alertThreshold) {
-                    String alertText = "¡Alerta! Alto";
-                    FontMetrics metrics = g2.getFontMetrics();
-                    int textWidth = metrics.stringWidth(alertText);
-
-                    g2.setColor(Color.RED);
-                    g2.setFont(new Font("Arial", Font.BOLD, 12));
-                    g2.drawString(alertText, (int) (dataArea.getCenterX() - textWidth / 2), (int) (dataArea.getMinY() - 5));
-                }
+            if (value != null && value.doubleValue() > alertThreshold) {
+                String alertText = "¡ALERTA!";
+                FontMetrics metrics = g2.getFontMetrics();
+                int textWidth = metrics.stringWidth(alertText);
+                g2.setColor(Color.RED);
+                g2.setFont(new Font("Arial", Font.BOLD, 12));
+                g2.drawString(alertText, (int) (dataArea.getCenterX() - textWidth / 2), (int) (dataArea.getMinY() - 5));
             }
         }
     }

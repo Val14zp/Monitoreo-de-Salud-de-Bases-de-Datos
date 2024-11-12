@@ -112,7 +112,7 @@ public class DatabaseMonitor {
 
                     // Actualizar gráfico de tablaspaces
                     for (TablespaceUsage ts : tablespaceData) {
-                        dashboard.updateTablespaceUsage(ts.getTablespaceName(), ts.getUsedPercentage(), ts.getFreePercentage());
+                        dashboard.updateTablespaceUsage(ts.getTablespaceName(), ts.getUsedPercentage(), ts.getFreePercentage(), ts.getStatus());
                     }
 
                     // Actualizar las consultas más intensivas
