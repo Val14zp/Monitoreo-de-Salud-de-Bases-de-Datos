@@ -299,9 +299,16 @@ public class Dashboard extends JFrame {
                 String alertText = "¡ALERTA!";
                 FontMetrics metrics = g2.getFontMetrics();
                 int textWidth = metrics.stringWidth(alertText);
+
+                // Obtener la posición X en el centro de la barra
+                double x = domainAxis.getCategoryMiddle(column, dataset.getColumnCount(), dataArea, plot.getDomainAxisEdge());
+
+                // Obtener la posición Y del valor de la barra
+                double y = rangeAxis.valueToJava2D(value.doubleValue(), dataArea, plot.getRangeAxisEdge());
+
                 g2.setColor(Color.RED);
                 g2.setFont(new Font("Arial", Font.BOLD, 12));
-                g2.drawString(alertText, (int) (dataArea.getCenterX() - textWidth / 2), (int) (dataArea.getMinY() - 5));
+                g2.drawString(alertText, (int) (x - textWidth / 2), (int) (y - 5));
             }
         }
     }
